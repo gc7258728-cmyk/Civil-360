@@ -1,0 +1,346 @@
+CIVIL360 1.0 - LE BUREAU DE PROJET PEDAGOGIQUE
+==========================================
+
+Application en francais pour relier quantites, budget, planning, effectifs et
+incertitudes d'un petit batiment rectangulaire de plain-pied. Public : etudiants
+en genie civil, enseignants et personnes souhaitant comprendre ces liens.
+Sans compte, sans API payante, sans secret ni service externe obligatoire.
+
+Le dossier livre contient exactement :
+  app.py             interface, style, calculs, stockage et exports
+  requirement.text   bibliotheques Python
+  README             installation, hypotheses, exemples et deploiement
+Les tests, captures, archives et donnees sont places hors de ce dossier.
+
+1. INSTALLER ET LANCER SOUS WINDOWS
+---------------------------------
+Python 3.12, 3.13 ou 3.14 est conseille. Ouvrir ce dossier dans VS Code,
+puis ouvrir Terminal > Nouveau terminal. Executer :
+
+  python -m pip install -r requirement.text
+  python -m streamlit run app.py
+
+La page locale indiquee dans le terminal s'ouvre dans le navigateur.
+Pour retrouver la presentation utilisee lors de la livraison :
+
+  python -m streamlit run app.py --theme.base light --theme.primaryColor "#6845E8" --theme.backgroundColor "#F4F1FB" --theme.secondaryBackgroundColor "#EAE4F5" --theme.textColor "#282238" --theme.sidebar.backgroundColor "#231B3A" --theme.sidebar.secondaryBackgroundColor "#38284F" --theme.sidebar.textColor "#E7DFF8"
+
+Le style et les ressources graphiques sont integres dans app.py. Pas de
+telechargement de photo ni de police externe necessaire. La presentation
+personnalisee est optimisee en mode clair. L'arriere-plan se change dans
+Apparence : Brume lilas / Sable clair / Glace bleue. Les formulaires et les
+actions sont de vrais composants Streamlit. Les tableaux larges defilent
+horizontalement sur telephone ; le reste de la page se reorganise.
+
+Bibliotheques et roles :
+  streamlit  interface web, navigation, formulaires, tableaux modifiables
+  numpy      tirages aleatoires et calculs vectorises Monte-Carlo
+  pandas     tableaux, statistiques, import/export CSV et Excel
+  plotly     graphiques interactifs, plan cote, Gantt, effectifs et finances
+  openpyxl   lecture et ecriture des classeurs .xlsx
+  reportlab  note PDF avec tableaux, hypotheses et pagination
+sqlite3, json, pathlib et les autres imports sont inclus dans Python.
+Les intervalles de versions sont inscrits dans requirement.text. Environnement
+effectivement utilise : Python 3.14, Streamlit 1.65, NumPy 2.5, pandas 3.0,
+Plotly 7.1, openpyxl 3.1.5, ReportLab 4.5. Ces bornes ne remplacent pas un
+verrouillage de toutes les dependances transitives pour une exploitation.
+
+2. PREMIERE UTILISATION
+----------------------
+L'application s'ouvre directement sur la vue d'ensemble.
+  - Cliquer sur Charger l'exemple fictif pour explorer Ecole des Horizons.
+  - Cet exemple utilise un espace separe et ne remplit pas votre registre.
+  - Revenir a mes projets retrouve les projets reellement enregistres.
+  - Projets > Creer un projet cree un dossier avec des hypotheses initiales.
+    Ces valeurs sont des propositions pedagogiques, pas des donnees mesurees.
+  - Les cartes de projets indiquent leur budget, duree et avancement circulaire.
+    Ouvrir ce projet choisit le projet actif pour tous les outils.
+  - Les boutons de formulaire enregistrent les modifications. La saisie seule
+    ne remplace pas les hypotheses du projet tant que le formulaire est ouvert.
+  - Une variante dupliquee est un dossier independant.
+
+Navigation :
+  Vue d'ensemble       plan, indicateurs, repartition du budget, projets
+  Projets              identite, objectifs, creation, copie, suppression
+  Quantites            dimensions, quantites, formules et plan de l'emprise
+  Budget et variantes  prix, pertes, provision, depenses constatees, comparaison
+  Planning et effectifs equipes, rendements, dependances, Gantt, courbe d'effectifs
+  Risques              hypotheses triangulaires, Monte-Carlo et sensibilite
+  Rapports             PDF, CSV, Excel, sauvegarde et restauration JSON
+
+3. GEOMETRIE ET QUANTITES
+------------------------
+Ce n'est pas un logiciel de dimensionnement. L'utilisateur fournit toutes les
+dimensions. Une seule emprise rectangulaire et un seul niveau sont modelises.
+
+Notations : L = longueur, l = largeur, h = hauteur des murs ; unites en metres.
+  Emprise au sol       A = L x l                                      m2
+  Decapage             V = A x profondeur                            m3
+  Beton                V = A x epaisseur de dalle
+                           + nombre de semelles x longueur x largeur x epaisseur
+  Maconnerie           M = 2 x (L+l) x h x (1-ouvertures/100)          m2
+  Enduits              E = 2 x M                                    m2
+  Couverture           C = A x coefficient de surface de toiture      m2
+
+Le plan represente uniquement le contour de l'emprise et ses cotes.
+L'illustration de batiment sur l'accueil est une identite graphique, pas un
+modele BIM ni la representation exacte du batiment saisi.
+
+Exclusions : poteaux, poutres, acier, cloisons, reseaux, fouilles de semelles,
+forme exacte de toiture et implantation des semelles. Ces exclusions sont
+visibles dans l'application et dans le PDF. Ne pas en deduire un devis exhaustif.
+
+4. BUDGET
+---------
+Pour chaque poste :
+  Quantite majoree = quantite geometrique x (1 + pertes/100)
+  Cout de fournitures = quantite majoree x prix unitaire
+  Main-d'oeuvre = effectif x duree en jours entiers x salaire journalier
+  Cout direct = somme des fournitures + main-d'oeuvre + frais fixes
+  Provision = cout direct x taux de provision/100
+  Enveloppe estimee = cout direct + provision
+
+Les prix sont HORS main-d'oeuvre, sinon celle-ci serait comptee deux fois.
+Le prix de terrassement represente les moyens materiels / prestations hors
+equipe deja remuneree dans le planning. Le libelle fournitures est utilise
+pour l'ensemble de ces couts de postes hors main-d'oeuvre.
+Le taux de pertes majore tous les postes de la meme facon : approximation
+volontairement simple. Une perte de materiau ne modifie pas la geometrie ni
+le temps de pose dans ce modele. Pas de TVA, inflation calendaire ou monnaie
+convertie implicitement. Tous les couts sont en FCFA.
+
+Budget disponible : objectif librement saisi dans Projets.
+Depenses constatees : montant cumule declare manuellement dans Budget. Il ne
+modifie pas le devis et n'est pas transforme en historique fictif.
+La courbe de finances repartit les couts de chaque poste uniformement sur sa
+tache, et les frais fixes + provision sur toute la duree. Elle se termine a
+l'enveloppe estimee ; ce n'est ni un paiement reel ni une courbe de factures.
+La provision n'est pas une depense certaine : son etalement est une reserve
+theorique de financement.
+
+La comparaison temporaire agit sur les prix et les rendements. Elle ne change
+pas le projet enregistre. Son CSV s'exporte dans Budget. Pour conserver une
+variante complete, dupliquer le projet et modifier la copie.
+
+5. PLANNING, EFFECTIFS ET AVANCEMENT
+-----------------------------------
+Une tache pour chacun des cinq postes, sans doublon. Le tableau permet de
+modifier libelle, effectif, rendement, salaire, predecesseurs et avancement.
+Sur telephone, utilisez plutot Tache a modifier puis le formulaire Modifier
+une equipe simplement : ouvriers, rendement, salaire, avancement, dependances.
+Enregistrer cette tache recalcule immediatement le planning et le budget.
+
+  Duree = arrondi superieur(quantite / (effectif x rendement))
+  Debut = maximum des fins des predecesseurs
+  Fin = debut + duree
+
+Les calculs internes utilisent des bornes de jours ecoules : debut 0 signifie
+le debut de J1. Une duree de 5 jours correspond a J1-J5 ; un successeur peut
+commencer a J6. Pour une quantite nulle, duree nulle, aucun ouvrier mobilise
+sur cette tache. Si fin < debut_J dans le tableau d'une tache vide, cela
+represente ce jalon sans jour de travail.
+Les dependances sont fin-debut, sans delai additionnel. Les cycles sont
+refuses et les predecesseurs inconnus sont signales.
+
+Les ouvriers de deux taches paralleles sont distincts et s'additionnent.
+Pas de week-end, conge, calendrier meteo ou partage automatique d'une meme
+equipe. Le nombre de journees-ouvriers est la somme des effectifs journaliers.
+Un ouvrier est remunere pour la journee entiere, meme si la derniere journee
+de sa tache n'est pas remplie. Le nombre entier de jours explique les paliers.
+Marge d'une tache : retard possible sans repousser la fin du projet, sous les
+hypotheses du reseau. Une marge nulle identifie une tache critique.
+L'avancement saisi est un pourcentage declare par tache. L'avancement global
+est pondere par les couts de postes (fournitures + main-d'oeuvre), hors frais
+fixes et provision. Il n'est pas deduit automatiquement du temps ecoule.
+
+Import CSV/Excel : telecharger le modele de taches dans Planning, modifier
+les valeurs puis utiliser Verifier et remplacer les taches. Le remplacement
+concerne uniquement le projet actif, apres validation de toutes les lignes.
+Colonnes : id,name,item,workers,rate,wage,pred,progress.
+Codes item : excavation, concrete, walls, plaster, roof.
+Predecesseurs separes par des virgules, ex. T2,T3. CSV exporte en UTF-8 avec
+BOM, separateur point-virgule, decimales avec virgule. Excel : premier onglet.
+Pas d'import de macros, pas d'execution de formule Excel.
+
+6. PROBABILITES
+---------------
+Le modele tire deux facteurs :
+  Facteur de prix       multiplie tous les prix de postes simultanement
+  Facteur de rendement  multiplie tous les rendements simultanement
+Chaque facteur suit une loi triangulaire minimum / mode / maximum.
+Le mode est la valeur la plus plausible, pas necessairement la moyenne.
+Les facteurs sont independants entre eux, mais communs aux postes : les
+prix de tous les postes bougent ensemble, de meme pour les rendements.
+Les salaires journaliers et frais fixes sont supposes constants. Le nombre
+de jours et le cout de main-d'oeuvre sont recalcules pour chaque tirage.
+
+Le cout simule est le cout direct, SANS ajout de provision certaine.
+Il est compare au budget disponible. Le delai simule est compare au delai
+objectif du projet. Depassement strict : cout > budget ou duree > delai.
+
+Quantiles, mediane, moyenne, ecart-type d'echantillon et histogrammes sont
+calcules sur les tirages. Une graine fixe permet de reproduire un calcul.
+Les champs peuvent etre modifies sans calcul : les hypotheses du resultat
+affiche restent explicitement celles du dernier lancement. Une modification
+du projet enregistre invalide l'affichage des simulations precedentes.
+Le CSV des tirages et le JSON des hypotheses s'exportent dans Risques.
+
+L'intervalle de Wilson a 95 % concerne seulement la precision de la frequence
+Monte-Carlo sous ce modele. Aucun depassement observe ne prouve pas un risque
+nul. Les hypotheses restent la principale limite du resultat.
+La sensibilite compare separement prix +/-10 % et rendement +/-10 %, en
+conservant les autres parametres. C'est un calcul deterministe complementaire.
+Ces hypotheses ne couvrent ni securite structurelle, ni conformite, ni panne,
+pluie, retard de livraison ou incertitude geotechnique.
+
+7. TEST COMPLET DE L'EXEMPLE FICTIF
+---------------------------------
+Charger l'exemple fictif pour retrouver les valeurs initiales ci-dessous.
+Si vous avez modifie cet espace, rechargez la page du navigateur pour une
+nouvelle session (l'exemple n'est pas persiste sur disque).
+
+Dimensions : 12 x 8 m, murs 3 m, dalle 0,12 m, decapage 0,30 m,
+ouvertures 20 %, 8 semelles de 1 x 1 x 0,40 m, toiture coefficient 1,15.
+Resultats :
+  Decapage 28,80 m3 ; beton 14,72 m3 ; murs 96 m2 ; enduits 192 m2 ;
+  couverture 110,40 m2.
+
+Prix unitaires dans cet ordre : 3 000 ; 90 000 ; 8 000 ; 2 500 ; 10 000 FCFA.
+Pertes 5 %, frais fixes 250 000 FCFA, provision 10 %.
+Effectifs : 3 ; 4 ; 4 ; 3 ; 3 ouvriers.
+Rendements : 2 ; 1 ; 4 ; 6 ; 5 unites par ouvrier et par jour.
+Salaires : 6 000 FCFA par ouvrier et par jour pour chaque tache.
+Dependances : T1 -> T2 -> T3 -> T4 et T3 -> T5.
+Resultats manuels :
+  T1 5 jours, T2 4 jours, T3 6 jours, T4 11 jours, T5 8 jours.
+  Duree du projet : 26 jours. Fin : 27/11/2026 pour debut le 02/11/2026.
+  T4 et T5 commencent a J16. T5 possede 3 jours de marge.
+  Effectif maximal 6 ; total 112 journees-ouvriers.
+  Fournitures 3 951 360 FCFA ; main-d'oeuvre 672 000 FCFA.
+  Direct 4 873 360 FCFA ; provision 487 336 FCFA ; total 5 360 696 FCFA.
+  Avancement initial : T1 100 %, T2 50 %, autres 0 % ; global 19,99 %.
+  Depenses constatees declarees 1 250 000 FCFA ; budget 9 000 000 FCFA.
+
+Test d'effectif : passer T4 de 3 a 6 ouvriers et enregistrer.
+  Duree T4 6 jours ; projet 23 jours ; maximum 9 ouvriers en parallele.
+Revenir a 3 pour poursuivre les tests sur la base initiale.
+
+Test de dependance : mettre T5 apres T4 au lieu de T3.
+  Duree du projet 34 jours. Revenir a T3 ensuite.
+
+Test Monte-Carlo sans hasard : les six facteurs minimum/mode/maximum a 1.
+  Chaque tirage donne 4 873 360 FCFA et 26 jours.
+  Avec budget 9 000 000 et delai 45, les deux depassements valent 0 %.
+  Ce test controle le calcul, pas la realite d'un chantier.
+
+Test probabiliste : prix 0,9 / 1 / 1,2 ; rendement 0,75 / 1 / 1,1,
+10 000 tirages, graine 42. Les valeurs doivent varier. Deux lancements avec
+les memes hypotheses et la meme graine doivent reproduire les memes tirages.
+
+Tests d'erreur : nom de projet vide ; predecesseur INCONNU ; cycle T1 apres
+T5 ; minimum de prix superieur au maximum. Un message doit apparaitre,
+sans enregistrer de donnees partielles ni fermer l'application.
+
+Exports : PDF lisible, Excel avec 5 onglets, CSV de planning et simulations,
+JSON restaure comme copie. Verifier le maintien des projets existants.
+
+8. STOCKAGE ET SAUVEGARDE
+------------------------
+Par defaut sous Windows :
+  C:\Users\<utilisateur>\Documents\Codex\data\civil360\civil360.sqlite3
+Ce dossier est cree automatiquement. Pour choisir un autre emplacement :
+  $env:CIVIL360_DATA_DIR = "C:\MesDonnees\Civil360"
+  python -m streamlit run app.py
+
+Les projets personnels sont persistes ; l'exemple fictif reste en session.
+Les sauvegardes JSON contiennent tous les projets de l'espace actif.
+La restauration ajoute des copies avec de nouveaux identifiants et ne supprime
+rien. Limites : 50 projets, JSON 5 Mo, import de taches 2 Mo, planning nominal
+3 650 jours maximum. Les tableaux des 5 postes sont volontairement bornes.
+Un numero de revision empeche l'ecrasement d'une sauvegarde par un onglet
+qui aurait conserve une ancienne version : Recharger le registre puis refaire
+la modification. Exportez votre JSON avant toute intervention sur les donnees.
+Pas de connexion ni de droits par utilisateur dans cette version pedagogique.
+Sur un serveur partage, le registre personnel est donc commun aux visiteurs.
+
+9. PUBLIER SUR GITHUB ET STREAMLIT COMMUNITY CLOUD
+------------------------------------------------
+Le nom requirement.text est conserve dans le dossier livre a votre demande.
+Pour installer automatiquement les dependances, Streamlit Community Cloud
+attend le nom standard requirements.txt.
+
+Preparez UNE COPIE SEPAREE de ces trois fichiers pour le deploiement.
+Dans cette copie seulement, nommez le fichier requirements.txt :
+  Copy-Item -LiteralPath requirement.text -Destination requirements.txt
+Le fichier requirement.text peut ensuite etre retire DE LA COPIE de deploiement
+si vous souhaitez n'y conserver que trois fichiers. Le dossier livre reste
+app.py + requirement.text + README. Ne publiez pas de base SQLite ni de secret.
+
+Dans GitHub : creer par exemple le depot civil360, puis Add file > Upload files.
+Charger app.py, requirements.txt et README sur la meme branche main, puis commit.
+Depuis VS Code / Git, si un depot a deja ete cree :
+  git init
+  git add app.py requirements.txt README
+  git commit -m "Premiere version de Civil360"
+  git branch -M main
+  git remote add origin https://github.com/VOTRE_COMPTE/civil360.git
+  git push -u origin main
+Si origin existe deja : verifier git remote -v puis, si besoin, utiliser
+git remote set-url origin avec l'URL exacte de votre nouveau depot.
+Ne pas reutiliser le remote d'une autre application par erreur.
+
+Dans Streamlit Community Cloud :
+  - Create app / Deploy an app depuis votre compte connecte a GitHub.
+  - Repository : VOTRE_COMPTE/civil360 ; Branch : main ; Main file : app.py.
+  - Si vous utilisez Paste URL, fournir l'URL du FICHIER :
+    https://github.com/VOTRE_COMPTE/civil360/blob/main/app.py
+  - Choisir une version Python compatible proposee par le service.
+  - Deployer et consulter les logs si une bibliotheque manque.
+  - Partager au professeur l'URL publique ...streamlit.app, jamais localhost.
+
+Le disque Cloud peut etre efface lors d'un redeploiement : conserver vos JSON.
+Pour des donnees durables et des utilisateurs distincts, une base externe et
+une gestion d'acces seraient a ajouter dans une version ulterieure.
+
+Apres modification, remplacer le fichier dans le MEME depot / MEME branche,
+puis commit. Avec Git :
+  git status
+  git add app.py requirements.txt README
+  git commit -m "Amelioration de Civil360"
+  git push
+Verifier les logs puis la page publique. Un redemarrage ne corrige pas un nom
+de fichier de dependances incorrect.
+Documentation officielle consultee pour ces indications :
+https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/app-dependencies
+https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app
+
+10. VERIFICATIONS DE LIVRAISON
+-----------------------------
+Les calculs, imports/exports et interactions sont testes hors du dossier livre.
+Verifications realisees le 27/10/2026 :
+  - 26 tests automatises reussis : exemples manuels, budget, dependances,
+    marges, effectifs, conservation des sommes, variations de geometrie,
+    lois triangulaires, graine reproductible, calcul sans hasard, erreurs,
+    imports CSV/Excel, exports PDF/Excel/JSON, stockage et revision concurrente.
+  - AppTest : exemple isole du registre, modification manuelle d'une equipe,
+    restauration sans fichier signalee sans blocage.
+  - Navigateur Edge : 1440, 768, 390 et 320 pixels. Les sept rubriques,
+    formulaires, liens entre geometrie/budget/planning, import d'equipes,
+    simulation et erreurs, cartes de projets, exports et restauration additive
+    ont ete controles. Changement de fond et separation exemple/reel verifies.
+  - Captures ordinateur et mobile inspectees ; correction de l'espacement du
+    bandeau, de la date sur petit ecran et de la superposition des pastilles.
+  - PDF exporte : deux pages de l'exemple et deux pages avec noms longs
+    rendues et inspectees. Aucun caractere hors des marges controlees.
+  - Excel exporte depuis le navigateur ouvert : cinq onglets. Valeurs du PDF
+    et JSON exportes verifies. Formules de texte Excel conservees comme texte.
+  - Registre personnel vide reste inchange pendant les essais de demonstration.
+  - Installation avec python -m pip install -r requirement.text terminee.
+Les tests, captures et exports de verification sont dans work/civil360-qa,
+hors du dossier livre. Quelques fermetures de navigateur ont produit un
+message Windows ConnectionResetError dans le journal du serveur ; la page
+et ses outils sont restes fonctionnels, sans exception de calcul affichee.
+Restent a verifier sur votre propre environnement : deploiement Cloud,
+autres navigateurs, donnees reelles et adequation des hypotheses a votre devoir.
+Cette application ne remplace ni un metre complet, ni un devis contractuel,
+ni un planning d'execution, ni une verification professionnelle d'ouvrage.
